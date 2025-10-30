@@ -1,6 +1,8 @@
 ---
 title: "EV Power - Lab 4 Project Report"
 format: typst
+author: Branden Chen
+data: 10/29/2025
 ---
 
 # Example Solution 1
@@ -8,27 +10,79 @@ format: typst
 ## **Part 0: libraries**
 
 ```{r}
+#| echo: False
+#| title: Setup Library
+#| output: False
 
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tidyverse)
+library(stringr)
+
+s = read.csv("data/states.csv")
+
+renew_1 = read.csv("data/renew-use-2021.csv")
+renew_2 = read.csv("data/renew-use-2022.csv")
+renew_3 = read.csv("data/renew-use-2023.csv")
+
+cleaned_renew_1 = read.csv("data/renew-use-2021.csv")
+cleaned_renew_2 = read.csv("data/renew-use-2022.csv")
+cleaned_renew_3 = read.csv("data/renew-use-2023.csv")
+
+average_price = read.csv("data/av-energy-price-2021-2023.csv")
+
+total_energy_use_1 = read.csv("data/total-use-2021.csv")
+total_energy_use_2 = read.csv("data/total-use-2022.csv")
+total_energy_use_3 = read.csv("data/total-use-2023.csv")
+
+ev_registration = read.csv("data/ev-registrations-by-state-2023.csv")
+cleaned_ev_registration = read.csv("data/ev-registrations-by-state-2023.csv")[c(-1,-2),]
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: How is the EV sells effect the price of electricity and usage of electricity.
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+# Cleaning renew dataset column 2
 
+cleaned_renew_1[[3]] = as.integer(str_match(renew_1[,3], pattern= "[0-9]+"))
+cleaned_renew_2[[3]] = as.integer(str_match(renew_2[,3], pattern= "[0-9]+"))
+cleaned_renew_3[[3]] = as.integer(str_match(renew_3[,3], pattern= "[0-9]+"))
+
+cleaned_ev_registration[[2]] = as.integer(str_match(ev_registration[c(-1,-2),][,2], pattern= "[0-9]+"))
+cleaned_ev_registration = cleaned_ev_registration[-nrow(cleaned_ev_registration), ]
+cleaned_ev_registration = left_join(x = s, y = cleaned_ev_registration, by= join_by(Name == electric.vehicle.registrations_by_state..2023.))
+
+cleaned_total_1 = pivot_longer(total_energy_use_1, cols= colnames(total_energy_use_1)[-1], names_to= "States", values_to= "use2021" )
+cleaned_total_2 = pivot_longer(total_energy_use_2, cols= colnames(total_energy_use_2)[-1], names_to= "States", values_to= "use2022" )
+cleaned_total_3 = pivot_longer(total_energy_use_3, cols= colnames(total_energy_use_3)[-1], names_to= "States", values_to= "use2023" )
 ```
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
+join_total_by_states = cleaned_total_1 |> group_by(States) |> slice_head(n = 1) |> filter(States != "US")
+join_total_by_states = join_total_by_states[,2]
+join_total_by_states = left_join(x= join_total_by_states, y= cleaned_ev_registration[,-2], by= join_by(States == Abbreviation))
+# join_total_by_states = left_join(x= join_total_by_states, y= cleaned_total_1)
+# join_total_by_states = left_join(x= join_total_by_states, y= cleaned_total_2)
+join_total_by_states = left_join(x= join_total_by_states, y= cleaned_total_3)
+colnames(join_total_by_states) = c("States", "EV_Sale", "Supplier", "Electric_Uses")
 
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
+#| output: False
 
+join_total_by_states |> ggplot(aes(x= States)) + geom_col(aes(y= Electric_Uses, fill= Supplier)) + geom_point(aes(y= EV_Sale * 20))
 ```
+
+![plot](data/plot-88.png)
+
+From the graph we can see that the black dot is the sale of EVs (Which is linear rescaled for visualization purpose, which y-axis is not correspond to real EV sale), there are same proportions. which compare to other states, high EV Sale will almost have higher electric use 
